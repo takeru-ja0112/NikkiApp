@@ -2,14 +2,22 @@ import { getDB } from "./client";
 import type { DiaryEntry, DiaryEntryInput, DiaryEntryPatch } from "./schema";
 
 export async function createEntry(
-  input: DiaryEntryInput
+  input: DiaryEntryInput,
+  targetDate: Date = new Date()
 ): Promise<DiaryEntry> {
   const db = await getDB();
-  const now = Date.now();
+  const now = new Date();
+  const createdAt = new Date(targetDate);
+  createdAt.setHours(
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+    now.getMilliseconds()
+  );
   const entry: DiaryEntry = {
     id: crypto.randomUUID(),
-    createdAt: now,
-    updatedAt: now,
+    createdAt: createdAt.getTime(),
+    updatedAt: now.getTime(),
     ...input,
   };
   await db.add("entries", entry);

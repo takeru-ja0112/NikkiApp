@@ -51,8 +51,8 @@ export function useDiaryEntries() {
   }, []);
 
   const add = useCallback(
-    async (input: DiaryEntryInput) => {
-      await createEntry(input);
+    async (input: DiaryEntryInput, targetDate?: Date) => {
+      await createEntry(input, targetDate);
       await refresh();
     },
     [refresh]
