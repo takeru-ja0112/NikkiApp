@@ -38,65 +38,46 @@ const dateTimeFormatter = new Intl.DateTimeFormat("ja-JP", {
   minute: "2-digit",
 });
 
-function EntryForm({
-  editingEntry,
-  onSubmit,
-  onCancelEdit,
+type EntryFieldsValue = {
+  title: string;
+  content: string;
+  tags: string[];
+  mood: Mood;
+};
+
+const EMPTY_ENTRY_FIELDS: EntryFieldsValue = {
+  title: "",
+  content: "",
+  tags: [],
+  mood: 5,
+};
+
+function EntryFields({
+  value,
+  onChange,
 }: {
-  editingEntry: DiaryEntry | null;
-  onSubmit: (input: {
-    title: string;
-    content: string;
-    tags: string[];
-    mood: Mood;
-  }) => Promise<void>;
-  onCancelEdit: () => void;
+  value: EntryFieldsValue;
+  onChange: (patch: Partial<EntryFieldsValue>) => void;
 }) {
-  const [title, setTitle] = useState(editingEntry?.title ?? "");
-  const [content, setContent] = useState(editingEntry?.content ?? "");
-  const [tags, setTags] = useState<string[]>(editingEntry?.tags ?? []);
-  const [mood, setMood] = useState<Mood>(editingEntry?.mood ?? 5);
-  const [isSaving, setIsSaving] = useState(false);
-
   const toggleTag = (tag: string) => {
-    setTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
-
-  const reset = () => {
-    setTitle("");
-    setContent("");
-    setTags([]);
-    setMood(5);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
-    setIsSaving(true);
-    try {
-      await onSubmit({ title: title.trim(), content: content.trim(), tags, mood });
-      reset();
-    } finally {
-      setIsSaving(false);
-    }
+    onChange({
+      tags: value.tags.includes(tag)
+        ? value.tags.filter((t) => t !== tag)
+        : [...value.tags, tag],
+    });
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900"
-    >
+    <>
       <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        value={value.title}
+        onChange={(e) => onChange({ title: e.target.value })}
         placeholder="タイトル"
         className="rounded-xl border border-black/10 bg-transparent px-3 py-2 text-base font-medium outline-none focus:border-black/40 dark:border-white/10 dark:focus:border-white/40"
       />
       <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
+        value={value.content}
+        onChange={(e) => onChange({ content: e.target.value })}
         placeholder="今日はどんな一日でしたか？"
         rows={4}
         className="resize-none rounded-xl border border-black/10 bg-transparent px-3 py-2 text-sm outline-none focus:border-black/40 dark:border-white/10 dark:focus:border-white/40"
@@ -109,7 +90,7 @@ function EntryForm({
             type="button"
             onClick={() => toggleTag(tag)}
             className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              tags.includes(tag)
+              value.tags.includes(tag)
                 ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
                 : "border-black/20 text-black/60 dark:border-white/20 dark:text-white/60"
             }`}
@@ -121,57 +102,140 @@ function EntryForm({
 
       <div className="flex items-center gap-3">
         <span className="text-xl" aria-hidden>
-          {MOOD_EMOJI[mood]}
+          {MOOD_EMOJI[value.mood]}
         </span>
         <input
           type="range"
           min={1}
           max={10}
-          value={mood}
-          onChange={(e) => setMood(Number(e.target.value) as Mood)}
+          value={value.mood}
+          onChange={(e) => onChange({ mood: Number(e.target.value) as Mood })}
           className="flex-1 accent-black dark:accent-white"
         />
         <span className="w-6 text-right text-xs text-black/50 dark:text-white/50">
-          {mood}
+          {value.mood}
         </span>
       </div>
+    </>
+  );
+}
 
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="flex-1 rounded-full bg-black py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-        >
-          {editingEntry ? "更新する" : "保存する"}
-        </button>
-        {editingEntry && (
-          <button
-            type="button"
-            onClick={() => {
-              onCancelEdit();
-              reset();
-            }}
-            className="rounded-full border border-black/20 px-4 py-2 text-sm text-black/60 dark:border-white/20 dark:text-white/60"
-          >
-            キャンセル
-          </button>
-        )}
-      </div>
+function EntryForm({
+  onSubmit,
+}: {
+  onSubmit: (input: EntryFieldsValue) => Promise<void>;
+}) {
+  const [value, setValue] = useState<EntryFieldsValue>(EMPTY_ENTRY_FIELDS);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!value.title.trim() || !value.content.trim()) return;
+    setIsSaving(true);
+    try {
+      await onSubmit({
+        ...value,
+        title: value.title.trim(),
+        content: value.content.trim(),
+      });
+      setValue(EMPTY_ENTRY_FIELDS);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900"
+    >
+      <EntryFields
+        value={value}
+        onChange={(patch) => setValue((v) => ({ ...v, ...patch }))}
+      />
+      <button
+        type="submit"
+        disabled={isSaving}
+        className="rounded-full bg-black py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+      >
+        保存する
+      </button>
     </form>
   );
 }
 
 function EntryListItem({
   entry,
-  onEdit,
+  onSave,
   onDelete,
 }: {
   entry: DiaryEntry;
-  onEdit: () => void;
+  onSave: (patch: EntryFieldsValue) => Promise<void>;
   onDelete: () => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [draft, setDraft] = useState<EntryFieldsValue>({
+    title: entry.title,
+    content: entry.content,
+    tags: entry.tags,
+    mood: entry.mood,
+  });
+  const [isSaving, setIsSaving] = useState(false);
   const isLong = entry.content.length > CONTENT_PREVIEW_THRESHOLD;
+
+  const startEditing = () => {
+    setDraft({
+      title: entry.title,
+      content: entry.content,
+      tags: entry.tags,
+      mood: entry.mood,
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!draft.title.trim() || !draft.content.trim()) return;
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...draft,
+        title: draft.title.trim(),
+        content: draft.content.trim(),
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <li className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <EntryFields
+          value={draft}
+          onChange={(patch) => setDraft((v) => ({ ...v, ...patch }))}
+        />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1 rounded-full bg-black py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          >
+            保存する
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsEditing(false)}
+            className="rounded-full border border-black/20 px-4 py-2 text-sm text-black/60 dark:border-white/20 dark:text-white/60"
+          >
+            キャンセル
+          </button>
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li className="flex flex-col gap-2 rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
@@ -216,7 +280,7 @@ function EntryListItem({
       )}
       <div className="flex gap-2 pt-1">
         <button
-          onClick={onEdit}
+          onClick={startEditing}
           className="text-xs font-medium text-black/60 underline-offset-2 hover:underline dark:text-white/60"
         >
           編集
@@ -242,14 +306,11 @@ export default function Home() {
     dragOffset,
     isSnapping,
   } = useDateNavigation();
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   const dayEntries = useMemo(
     () => entries.filter((entry) => isSameDay(entry.createdAt, selectedDate)),
     [entries, selectedDate]
   );
-
-  const editingEntry = dayEntries.find((e) => e.id === editingId) ?? null;
 
   return (
     <div className="flex min-h-full flex-col overflow-x-hidden bg-zinc-50 dark:bg-black">
@@ -286,17 +347,8 @@ export default function Home() {
         className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-4 py-4 pb-24"
       >
         <EntryForm
-          key={editingEntry?.id ?? `new-${selectedDate.getTime()}`}
-          editingEntry={editingEntry}
-          onCancelEdit={() => setEditingId(null)}
-          onSubmit={async (input) => {
-            if (editingEntry) {
-              await edit(editingEntry.id, input);
-              setEditingId(null);
-            } else {
-              await add(input, selectedDate);
-            }
-          }}
+          key={`new-${selectedDate.getTime()}`}
+          onSubmit={(input) => add(input, selectedDate)}
         />
 
         {error && (
@@ -317,7 +369,7 @@ export default function Home() {
               <EntryListItem
                 key={entry.id}
                 entry={entry}
-                onEdit={() => setEditingId(entry.id)}
+                onSave={(patch) => edit(entry.id, patch)}
                 onDelete={() => remove(entry.id)}
               />
             ))}
